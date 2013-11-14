@@ -7,7 +7,7 @@ Quick hit plugin to generate autocompletes for your Rails project's class names 
 
 ### Installation
 
-Copy the RailsAutcomplete folder into the Packages folder in your ~/Library/Application Support/Sublime folder.
+Clone this into the Packages folder in your ~/Library/Application Support/Sublime folder.
 
 ### Usage
 
