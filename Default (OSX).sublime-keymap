@@ -1,0 +1,4 @@
+[
+	{ "keys": ["super+,", "super+p"], "command": "open_project_file" },
+	{ "keys": ["super+,", "super+a"], "command": "open_autocomplete_file" }
+]

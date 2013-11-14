@@ -1,0 +1,35 @@
+Welcome to the RailsAutocomplete Plugin
+
+This plug in will attempt to generate an autocompletion file for your project each time you save a file in the project.
+Class names and method names are parsed from all of the specified files in your project.
+-------------------------------------------------------
+
+It looks like this is the first time you have run this project with this plugin.
+We have added some settings to your project setting (*.sublime-project) file (opened up on the left).
+
+Please check the configuration.
+
+1. Open the project settings file under 'Preferences/Package Settings/Rails Autocomplete/Open Project Settings'.
+
+2. Check the following:
+* "ruby_path" - this should point to the correct ruby for your project.
+
+IMPORTANT NOTE: paths are relative to where the script is run from, not from where this file is.
+describe either folders (all .rb files will be globbed in subfolders too), e.g. 'app/models',
+or else a direct file path, e.g. lib/test/helper.rb
+
+* "source_paths" - set an array of filepaths in the project (relative to the project root) which should be parsed.
+* "exclude_paths" - set an array of filepaths to ignore
+* "exclude_class_names" - set an array of class or module names to ignore
+* "exclude_class_regex" - a Ruby regex used to filter our class names (in case you don't want to list every one out).
+  This should be a string, exactly like it would be used in Ruby's // regex initiator.
+* "exclude_method_names" - same as above, except for method names
+* "exclude_method_regex" - same as above, except for method names
+* "enabled" - set to true/false (default true). Allow you to turn off autocomplete generation for just this project.
+
+3. Gotchas
+
+Sublime doesn't have a way to scope autocompletion by project, only by language and other scope.
+Therefore a common autocomplete file is generated for each project you open, and is generated every time you save a file.
+
+The first time you switch to or open a new project, you may have to hit 'save' twice to ensure that the file is generated for your project.

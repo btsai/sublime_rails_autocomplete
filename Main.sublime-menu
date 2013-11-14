@@ -1,0 +1,26 @@
+[
+    {
+        "caption": "Preferences",
+        "mnemonic": "n",
+        "id": "preferences",
+        "children":
+        [
+            {
+                "caption": "Package Settings",
+                "mnemonic": "P",
+                "id": "package-settings",
+                "children":
+                [
+                    {
+                        "caption": "Rails Autocomplete",
+                        "children":
+                        [
+                            { "command": "open_project_file", "caption": "Open Project Settings" },
+                            { "command": "open_autocomplete_file", "caption": "Open Autocomplete File" },
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
