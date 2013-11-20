@@ -19,11 +19,11 @@ begin
     class GenerateCompletes
 
       def run(args)
-        settings, output_path = args
+        settings, output_path, project_folder = args
         settings = JSON.parse(settings)
 
         class_names, constant_names, method_names = FileParser.new(settings).find_definitions
-        AutoCompleteFileGenerator.new.output(class_names, constant_names, method_names, output_path)
+        AutoCompleteFileGenerator.new.output(class_names, constant_names, method_names, output_path, project_folder)
 
         puts "> Saved Rails autocomplete file to #{output_path}"
         puts "  #{class_names.size} class names."
@@ -86,7 +86,7 @@ begin
           line_num += 1  # adjust for 0 index
 
           # track if in private/protected area of code and ignore anything there.
-          # using private so that we can debug in each of the definition methods.
+          # using @private instance variable so that we can debug in each of the definition methods.
           if line.strip == 'private' || line.strip == 'protected'
             @private = true
           elsif line.strip == 'public'
@@ -97,8 +97,8 @@ begin
       end
 
       def add_snippet(snippet_data)
-        return if @triggers.include?(snippet_data.trigger)
-        @triggers << snippet_data.trigger
+        return if @triggers.include?(snippet_data.trigger_text)
+        @triggers << snippet_data.trigger_text
         @snippets << snippet_data
       end
 
@@ -231,17 +231,13 @@ begin
     class SnippetData < Struct.new(:trigger, :snippet, :file, :line)
 
       def to_autocomplete
-        # methods without args can also just be plain text, but with args needs to be a json object
-        if snippet.nil?
-          # if there are no arguments, the snippet = trigger, which can then just be output as the string itself
-          "\"#{escape_quotes(trigger)}\""
-        elsif trigger == snippet
-          # no arguments but this is a namespaced thing, so add the description
-          snippet_as_json
-        else
-          # if there are arguments, output a json object containing both the trigger and snippet
-          snippet_as_json
-        end
+        snippet_text = snippet.nil? ?
+                       # methods without args can also just be plain text, but with args needs to be a json object.
+                       # however we're tracking the original file name
+                       trigger :
+                       # if there are arguments, output a json object containing both the trigger and snippet
+                       snippet
+        snippet_as_json(trigger_text, snippet_text)
       end
 
       def model_name
@@ -250,10 +246,19 @@ begin
         model_name = model_name.gsub(/(?:_|(\/))([a-z\d]*)/) { "#{$1}#{$2.capitalize}" }
       end
 
+      def trigger_text
+        if snippet.nil?
+          trigger
+        else
+          # if there are arguments, output a json object containing both the trigger and snippet
+          trigger_with_model_name
+        end
+      end
+
       private
 
-      def snippet_as_json
-        %Q({ "trigger": "#{trigger_with_model_name}", "contents": "#{escape_quotes(snippet)}" })
+      def snippet_as_json(trigger, snippet)
+        %Q({ "trigger": "#{trigger}", "contents": "#{escape_quotes(snippet)}", "file": "#{escape_quotes(file)}" })
       end
 
       def trigger_with_model_name
@@ -268,23 +273,14 @@ begin
 
     class AutoCompleteFileGenerator
 
-      def output(class_names, constant_names, method_names, output_path)
+      def output(class_names, constant_names, method_names, output_path, project_folder)
         delete_file(output_path)
 
-        json = build_json(class_names, constant_names, method_names)
-        File.open(output_path, 'w') { |f| f.write(json) }
-      end
-
-      def delete_file(output_path)
-        File.delete(output_path) if File.exists?(output_path)
-      end
-
-      private
-
-      def build_json(class_names, constant_names, method_names)
-        <<-JSON
+        # puts project_folder
+        json = <<-JSON
 {
   "scope": "source.ruby.rails",
+  "project": "#{project_folder}",
   "completions": [
     #{class_names.map(&:to_autocomplete).join(",\n    ")},
     #{constant_names.map(&:to_autocomplete).join(",\n    ")},
@@ -292,6 +288,12 @@ begin
   ]
 }
         JSON
+
+        File.open(output_path, 'w') { |f| f.write(json) }
+      end
+
+      def delete_file(output_path)
+        File.delete(output_path) if File.exists?(output_path)
       end
 
     end
