@@ -13,8 +13,7 @@ class AutocompleteEventListener(sublime_plugin.EventListener):
 	def on_post_save(self, view):
 		# don't bother doing anything if there is no project folder
 		settings = AutocompleteSettings(view.window())
-		settings.clear_autocomplete_file()
-		if not settings.ready_for_autocomplete():
+		if not settings.ready_for_autocomplete() or not settings.auto_run_on_save():
 			return
 
 		if self.generator_thread != None:
@@ -24,6 +23,40 @@ class AutocompleteEventListener(sublime_plugin.EventListener):
 
 # end AutocompleteEventListener
 
+class AutocompleteGenerator():
+	# use the package's ruby generation script.
+	# save as a default generic name so that the autocomplete file is always generated on the fly for each rails project.
+	# this is to avoid having autocompletes from one project bleeding into another.
+	def run(self, settings):
+		settings.clear_autocomplete_file()
+
+		started = time.time()
+		print("> Running Rails autocomplete generation...")
+
+		json_settings = json.dumps(settings.settings)
+		args = [
+			settings.ruby_path,								# which ruby to execute (defaults to ruby but can be set on per project basis)
+			settings.script_path(),						# path of the ruby script to run
+			json_settings,													# autocomplete settings in json format
+			settings.autocomplete_filepath(),	# filepath for output; saving is done on the ruby side
+			settings.project_folder
+		]
+		result = subprocess.check_output(args,
+			                               cwd=settings.project_folder,
+			                               stderr=subprocess.STDOUT,
+			                               shell=False)
+		# return the ruby results to the sublime console
+		result = result.decode('utf8')
+
+		print(result)
+		status_message = "> Completed autocomplete generation in %.3fs." % (time.time() - started)
+		print(status_message)
+		sublime.status_message(status_message)
+		if 'ERROR:' in result:
+			sublime.error_message(result)
+
+# end AutocompleteGenerator
+
 # this is the separate thread class that runs the autocomplete generator in the background.
 class AutocompleteBackgroundGenerator(threading.Thread):
 	def __init__(self, settings):
@@ -31,35 +64,8 @@ class AutocompleteBackgroundGenerator(threading.Thread):
 		self.settings = settings
 		threading.Thread.__init__(self)
 
-
 	def run(self):
-		# use the package's ruby generation script.
-		# save as a default generic name so that the autocomplete file is always generated on the fly for each rails project.
-		# this is to avoid having autocompletes from one project bleeding into another.
-
-		started = time.time()
-		print("> Running Rails autocomplete generation...")
-
-		json_settings = json.dumps(self.settings.settings)
-		args = [
-			self.settings.ruby_path,								# which ruby to execute (defaults to ruby but can be set on per project basis)
-			self.settings.script_path(),						# path of the ruby script to run
-			json_settings,													# autocomplete settings in json format
-			self.settings.autocomplete_filepath(),	# filepath for output; saving is done on the ruby side
-			self.settings.project_folder
-		]
-		result = subprocess.check_output(args,
-			                               cwd=self.settings.project_folder,
-			                               stderr=subprocess.STDOUT,
-			                               shell=False)
-		# return the ruby results to the sublime console
-		result = result.decode('utf8')
-
-		print(result)
-		print("> Completed in %.3fs." % (time.time() - started) )
-		if 'ERROR:' in result:
-			sublime.error_message(result)
-
+		AutocompleteGenerator().run(self.settings)
 
 	def stop(self):
 		if self.isAlive():
@@ -75,7 +81,8 @@ class AutocompleteSettings:
 		self.has_source_paths = False
 		self.settings = sublime.load_settings(self.settings_filename)
 
-		# if there is a project folder, then get the settings
+		# if there is a project folder, then get the settings, note that get_autocomplete_settings will
+		# automatically add the autocomplete key to the project settings if missing.
 		if self.project_folder:
 			self.project_filepath = window.project_file_name()
 			self.get_autocomplete_settings()
@@ -123,10 +130,12 @@ class AutocompleteSettings:
 			# any existing settings will win.
 			full_settings = dict( list(self.default_settings.items()) + list(settings[self.project_settings_key].items()) )
 
+
 			# save back to project settings if there are changes
 			if settings[self.project_settings_key] != full_settings:
-				sublime.status_message("Updated project settings.")
+				settings[self.project_settings_key] = full_settings
 				self.window.set_project_data(settings)
+				sublime.status_message("Updated project settings.")
 		else:
 			# not set up yet, so add the autocomplete settings node to the project settings
 			settings[self.project_settings_key] = self.default_settings
@@ -143,10 +152,13 @@ class AutocompleteSettings:
 		return (self.project_folder_exists and self.enabled and self.has_source_paths)
 
 
+	def auto_run_on_save(self):
+		return self.settings['auto_run_on_save']
+
 	@property
 	def default_settings(self):
 		return {
-			'ruby_path': 'ruby',
+			'ruby_path': 'ruby',		# system ruby as default
 			'enabled': True,				# note Python style 'true', converts to true when viewing in settings viewer as JSON
 			'source_paths': [],
 			'exclude_paths': [],
@@ -155,12 +167,14 @@ class AutocompleteSettings:
 			'exclude_method_names':
 				['<=>'],
 			'exclude_class_regex': '',
-			'exclude_method_regex': ''
+			'exclude_method_regex': '',
+			'auto_run_on_save': False,		# if true, will regenerate each time any file in project is saved
 		}
 
 	@property
 	def base_path(self):
 		return os.path.join(sublime.packages_path(), 'RailsAutocomplete')
+
 
 	# sublime doesn't have project scope (!!), so we need to use a common name so that
 	# we don't have one project's autocomplete show up in another.
@@ -194,4 +208,15 @@ class OpenAutocompleteFileCommand(sublime_plugin.WindowCommand):
     		self.window.open_file(autocomplete_file)
 
 # end OpenProjectFileCommand
+
+class GenerateRailsAutocompleteCommand(sublime_plugin.WindowCommand):
+	def run(self):
+		settings = AutocompleteSettings(self.window)
+		if not settings.ready_for_autocomplete():
+			return
+
+		generator = AutocompleteGenerator()
+		generator.run(settings)
+
+# end GenerateRailsAutocomplete
 
