@@ -1,6 +1,6 @@
 # Sublime API reference: https://www.sublimetext.com/docs/3/api_reference.html
-import sublime, sublime_plugin
-import os, subprocess, threading, pipes, json, time
+import sys, sublime, sublime_plugin
+import os, subprocess, threading, pipes, json, time, re
 
 # this monitors for the file save callback.
 # if there is a project folder AND the generation script exists (/scripts/sublime/generate_sublime_snippets.rb),
@@ -53,7 +53,8 @@ class AutocompleteGenerator():
     print(status_message)
     sublime.status_message(status_message)
     if 'ERROR:' in result:
-      sublime.error_message(result)
+      message = re.compile(r"^(.+?)Backtrace", re.MULTILINE|re.DOTALL).match(result).group(1)
+      sublime.error_message(message)
 
 # end AutocompleteGenerator
 

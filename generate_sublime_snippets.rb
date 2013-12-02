@@ -111,6 +111,15 @@ begin
         line.match(/^\s*#/)
       end
 
+      def try_match(line, line_num)
+        begin
+          yield(line)
+        rescue => err
+          return if err.message.match(/US-ASCII/)
+          raise "Error #{err.class} in regex match.\nLine #{line_num}:\n#{line.strip}\nFile: #{@file}.\n#{err.message}"
+        end
+      end
+
     end
 
     class ClassParser < LineParser
@@ -123,7 +132,7 @@ begin
       end
 
       def parse_line(line, line_num)
-        return unless class_name = class_name_in_line(line)
+        return unless class_name = class_name_in_line(line, line_num)
 
         # filter out unneeded class/module names
         return if ignorable_class_names.include?(class_name)
@@ -142,13 +151,15 @@ begin
         @in_module_scope = true
       end
 
-      def class_name_in_line(line)
+      def class_name_in_line(line, line_num)
         # looking for the word 'class' or 'module' in an uncommented line
-        match = line.match(/(^|\s)
-                            (class|module)\s
-                            (.+?)       # class or module name
-                            ($|\s|\<)      # end of line or else end of class name, before parent class declaration
-                           /x)
+        match = try_match(line, line_num) do |line|
+          line.match(/(^|\s)
+                      (class|module)\s
+                      (.+?)       # class or module name
+                      ($|\s|\<)      # end of line or else end of class name, before parent class declaration
+                     /x)
+        end
 
         return unless match && !is_comment?(line)
         match[3].strip
@@ -159,7 +170,7 @@ begin
     class ConstantParser < LineParser
 
       def parse_line(line, line_num)
-        return unless constant = constant_in_line(line)
+        return unless constant = constant_in_line(line, line_num)
 
         snippet_data = SnippetData.new(constant, nil, @file, line_num)
         model_name = snippet_data.model_name
@@ -167,12 +178,15 @@ begin
         add_snippet(snippet_data)
       end
 
-      def constant_in_line(line)
-        match = line.match(/([A-Z_]+) # constant name
-                            (\s*)     # can have zero or more space
-                            =         # must have equals sign to ensure definition
-                            [^=]      # ignore equality check
-                           /x)
+      def constant_in_line(line, line_num)
+        match = try_match(line, line_num) do |line|
+          line.match(/([A-Z_]+) # constant name
+                      (\s*)     # can have zero or more space
+                      =         # must have equals sign to ensure definition
+                      [^=]      # ignore equality check
+                     /x)
+        end
+
         return unless match && !is_comment?(line)
         match[1].strip
       end
@@ -182,7 +196,7 @@ begin
     class MethodParser < LineParser
 
       def parse_line(line, line_num)
-        return unless method_line = line_with_method(line)
+        return unless method_line = line_with_method(line, line_num)
 
         method_name, args_string = method_and_args(method_line)
         return if settings['exclude_method_names'].include?(method_name)
@@ -196,13 +210,16 @@ begin
         add_snippet(SnippetData.new(method_name, snippet_text, @file, line_num))
       end
 
-      def line_with_method(line)
+      def line_with_method(line, line_num)
         # looking for 'def' in a line, including the method and args
-        match = line.match(/(^|\s)
-                            def\s
-                            (.+?)   # method name plus args
-                            ($|;)   # end of line or else end of def (for single line error class definitions)
-                           /x)
+        match = try_match(line, line_num) do |line|
+          line.match(/(^|\s)
+                      def\s
+                      (.+?)   # method name plus args
+                      ($|;)   # end of line or else end of def (for single line error class definitions)
+                     /x)
+        end
+
         return unless match && !is_comment?(line)
         match[2].gsub('self.', '').strip
       end
@@ -305,8 +322,10 @@ begin
 # outputting to stdout so that sublime can display in the console.
 rescue LoadError => err
   puts "RUBY ERROR: #{err.message}"
+  puts "Backtrace:"
   puts err.backtrace
 rescue => err
   puts "RUBY ERROR: #{err.message}"
+  puts "Backtrace:"
   puts err.backtrace
 end
