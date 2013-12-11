@@ -30,6 +30,5 @@ or else a direct file path, e.g. lib/test/helper.rb
 3. Gotchas
 
 Sublime doesn't have a way to scope autocompletion by project, only by language and other scope.
-Therefore a common autocomplete file is generated for each project you open, and is generated every time you save a file.
+Therefore a common autocomplete file is generated, and needs to be generated each time you open/switch to a new project.
 
-The first time you switch to or open a new project, you may have to hit 'save' twice to ensure that the file is generated for your project.
