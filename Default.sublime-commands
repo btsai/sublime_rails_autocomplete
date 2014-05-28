@@ -1,4 +1,5 @@
 [
   { "caption": "Rails Autocomplete: Open Project File", "command": "open_project_file" },
-  { "caption": "Rails Autocomplete: Open Autocomplete File", "command": "open_autocomplete_file" }
+  { "caption": "Rails Autocomplete: Open Autocomplete File", "command": "open_autocomplete_file" },
+  { "caption": "Rails Autocomplete: Generate Autocomplete File", "command": "generate_rails_autocomplete" }
 ]
